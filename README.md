@@ -15,7 +15,20 @@ You do not master three powers. You practise responding without rigidity: see wh
   - **↑ Mist**: complete release. Passes through veils and drifts over gaps, but wind scatters it.
 - **Let go** and you settle back into Water. Holding Ice or Mist too long starts to feel wrong, and eventually the form lets go by itself.
 
-Six short stages (about 20–40 seconds each). After each clear: a moment of stillness, a quote, and how long you needed to hold a form. Less is lighter.
+## Training apparatus
+
+Every stage mixes situations so no single form carries you through:
+
+- **Plum blossom posts**: Water is wide enough to rest across close posts; Ice slips between them; Mist floats over. Far-apart posts need Mist.
+- **Spinning arm post**: the high arm sweeps at head height (flow under as Water), the low arm at the ankles (float over as Mist). Ice stands firm against both.
+- **Heavy bag**: swings across the path. Time your crossing, or meet it as Ice.
+- **Stone lock**: blocks every form. Only Ice can push it, and pushing it into the hole ahead fills the hole.
+- **Temple bell**: each strike sends a wave along the ground. Mist floats over it, Ice stays rooted, Water can slip between waves.
+- Plus low beams (Water), silk scroll veils (Mist), wind (Ice), falling stone weights and closing lattice gates.
+
+Blows knock you back instead of ending the run.
+
+Six short stages (about 20–40 seconds each), all open from the start: pick any from the title screen. After each clear: a moment of stillness, a quote, and how long you needed to hold a form. Less is lighter.
 
 Desktop keys: ← → move · ↑/W mist · ↓/S water · Space/E ice.
 
