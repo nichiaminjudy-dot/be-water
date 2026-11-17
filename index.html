@@ -47,6 +47,12 @@
   .overlay { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
     padding:24px; box-sizing:border-box; opacity:0; pointer-events:none; transition:opacity 1.2s ease; }
   .overlay.show { opacity:1; pointer-events:auto; }
+  #title:not(.show) { transition-duration:.3s; }
+  #count { position:fixed; left:0; right:0; top:36%; text-align:center; font-family:var(--serif); font-size:84px; line-height:1; opacity:0; pointer-events:none;
+    color:#fff; text-shadow:0 0 4px rgba(0,0,0,.5), 0 2px 18px rgba(0,0,0,.55); }
+  #count.pop { animation:countPop .7s ease-out forwards; }
+  #count.go { font-size:40px; letter-spacing:.3em; padding-left:.3em; font-style:italic; }
+  @keyframes countPop { 0% { opacity:0; transform:scale(1.6); } 22% { opacity:1; transform:scale(1); } 75% { opacity:1; } 100% { opacity:0; transform:scale(.92); } }
   #msg { position:fixed; left:0; right:0; top:34%; text-align:center; font-family:var(--serif); opacity:0; transition:opacity .5s; pointer-events:none;
     text-shadow:0 0 3px rgba(0,0,0,.55), 0 1px 14px rgba(0,0,0,.6); padding:0 24px; }
   #msg.show { opacity:1; }
@@ -65,7 +71,7 @@
   #quote.show .cont { animation:breathe 3.2s ease-in-out 3.2s infinite; }
   @keyframes breathe { 0%,100% { opacity:.35 } 50% { opacity:.85 } }
 
-  #title { background:linear-gradient(180deg, rgba(12,16,24,.62) 0%, rgba(12,16,24,.15) 45%, rgba(12,16,24,.55) 100%); justify-content:space-between;
+  #title { background:linear-gradient(180deg, rgba(12,16,24,.62) 0%, rgba(12,16,24,.28) 45%, rgba(12,16,24,.62) 100%); text-shadow:0 1px 8px rgba(0,0,0,.5); justify-content:space-between;
     padding-top:calc(env(safe-area-inset-top) + 9vh); padding-bottom:calc(env(safe-area-inset-bottom) + 5vh); }
   #title .t1 { font-family:var(--serif); font-size:clamp(46px, 14vw, 78px); letter-spacing:.04em; line-height:1; }
   #title .t2 { font-size:12px; letter-spacing:.55em; margin-top:12px; opacity:.7; text-transform:uppercase; padding-left:.55em; }
@@ -83,7 +89,7 @@
   #stageGrid .card .nm { font-size:12px; letter-spacing:.02em; line-height:1.2; }
   #stageGrid .card .ls { font-family:var(--serif); font-style:italic; font-size:12px; opacity:.6; line-height:1.1; }
   #stageGrid .card.done::after { content:'✓'; position:absolute; top:5px; right:8px; font-size:11px; color:#8fe3ec; }
-  #stageGrid .card.next { border-color:rgba(143,227,236,.75); box-shadow:0 0 0 1px rgba(143,227,236,.25), 0 0 18px rgba(143,227,236,.15); }
+  #stageGrid .card.sel { border-color:rgba(143,227,236,.9); background:rgba(40,90,100,.55); box-shadow:0 0 0 1px rgba(143,227,236,.35), 0 0 22px rgba(143,227,236,.25); transform:translateY(-2px); }
   #beginBtn { margin-top:16px; padding:13px 28px; min-height:46px; border-radius:24px; border:1px solid rgba(143,227,236,.65); background:rgba(143,227,236,.14);
     color:var(--ink); font:inherit; font-size:13px; letter-spacing:.22em; text-transform:lowercase; cursor:pointer; }
   @media (orientation: landscape) and (max-height: 520px) {
@@ -108,11 +114,12 @@
   <div id="btns"><button id="btnSound" aria-label="Sound">♪</button><button id="btnMenu" aria-label="Stages" title="Stages">☰</button></div>
   <div id="chips" class="hide">
     <div class="chip" data-f="water">↓ water<div class="bar"></div></div>
-    <div class="chip" data-f="ice">↔ ice<div class="bar"></div></div>
+    <div class="chip" data-f="ice">← → ice<div class="bar"></div></div>
     <div class="chip" data-f="mist">↑ mist<div class="bar"></div></div>
   </div>
 </div>
 
+<div id="count"></div>
 <div id="msg"><div class="cause"></div><div class="again">try again, more fluidly</div></div>
 
 <div id="quote" class="overlay">
@@ -137,9 +144,9 @@
   </div>
   <div>
     <div class="how">
-      drag <b>← →</b> to flow<br>
-      flick <b>↓</b> water &nbsp;·&nbsp; <b>↔</b> ice &nbsp;·&nbsp; <b>↑</b> mist<br>
-      let go, and you return to water
+      the current carries you forward<br>
+      swipe <b>↑</b> mist &nbsp;·&nbsp; <b>← →</b> ice &nbsp;·&nbsp; <b>↓</b> water<br>
+      forms fade back to water on their own
     </div>
     <div class="pick">choose a stage</div>
     <div id="stageGrid"></div>
@@ -213,9 +220,9 @@ resize();
    windK    : how strongly gusts move it (Ice barely moves; Mist is scattered).
    --------------------------------------------------------------------- */
 const FORMS = {
-  water: { w: 26, h: 14, speed: 92, accel: 9,   windK: 1.15, color: '#5fcbd6', trail: 'rgba(110,210,222,' },
-  ice:   { w: 22, h: 26, speed: 54, accel: 5,   windK: 0.05, color: '#e4f6ff', trail: 'rgba(225,244,255,' },
-  mist:  { w: 20, h: 24, speed: 70, accel: 3.2, windK: 3.0,  color: '#bdb2d8', trail: 'rgba(196,186,226,' },
+  water: { w: 26, h: 14, speed: 72, accel: 9,   windK: 1.15, color: '#5fcbd6', trail: 'rgba(110,210,222,' },
+  ice:   { w: 22, h: 26, speed: 50, accel: 5,   windK: 0.05, color: '#e4f6ff', trail: 'rgba(225,244,255,' },
+  mist:  { w: 20, h: 24, speed: 64, accel: 3.2, windK: 3.0,  color: '#bdb2d8', trail: 'rgba(196,186,226,' },
 };
 const GRAVITY       = 520;
 const MIST_HOVER    = 12;    // mist floats this far above the ground
@@ -225,9 +232,9 @@ const PRESS_UP      = 46;
 const BAG_L = 64, BAG_PIVOT = 79, BAG_SWING = 0.55; // heavy bag rope length, pivot height, swing (radians)
 const WAVE_V        = 110;   // bell wave speed along the ground    // how high a press rests (world px above ground)
 const POUR_TIME     = 0.22;  // the brief "commitment" of a change
-const POUR_COOLDOWN = 0.32;  // prevents mindless spamming
-const HOLD_DECAY_TOUCH   = 0.05; // per second, while a finger rests on the screen
-const HOLD_DECAY_RELEASE = 1.3;  // per second, once the finger lifts -> soft return to water
+const POUR_COOLDOWN = 0.2;   // a tiny commitment; swipes made during it are buffered, never lost
+const FORM_LIFE     = 3.2;   // seconds an Ice/Mist pour lasts before settling back to Water (swipe again to refresh)
+const LOG_V         = 60;    // rolling log speed
 const STRAIN_START  = 4.0;   // seconds in Ice/Mist before the form starts to feel wrong
 const STRAIN_SPAN   = 2.5;   // ...and how long until it lets go on its own
 
@@ -244,6 +251,10 @@ const STRAIN_SPAN   = 2.5;   // ...and how long until it lets go on its own
      Bag    swinging heavy bag – time it, or meet it as Ice
      Stone  stone lock – blocks every form; only Ice can push it (into a hole, to fill it)
      Bell   temple bell – its wave runs along the ground; Mist floats over, Ice is rooted
+     Log    logs roll toward you – Mist floats over, Ice breaks them, Water is knocked back
+     Coals  hot coals – Water turns to steam (Mist) whether you like it or not; Ice melts
+     Fall   waterfall – Water is carried faster; Ice is slowed; Mist is beaten back
+     Vent   rising steam over a chasm – lifts Mist high enough to cross
    --------------------------------------------------------------------- */
 const S = (x, text) => ({ type: 'sign', x, w: 0, text });
 const L = (x, w, clear = 18) => ({ type: 'low', x, w, clear });
@@ -259,47 +270,55 @@ const Spin = (x, w, period, offset = 0) => ({ type: 'spin', x, w, period, offset
 const Bag = (px, period, offset = 0) => ({ type: 'bag', x: px - 40, w: 80, period, offset });  // swinging heavy bag (pivot px)
 const Stone = x => ({ type: 'stone', x, w: 20, h: 20 });                                         // stone lock: only Ice can push it
 const Bell = (bx, period, offset, range) => ({ type: 'bell', x: bx - range, w: range, period, offset }); // bell at bx, wave runs left
+// Made for a moving current
+const Log = (x, w, period, offset = 0) => ({ type: 'log', x, w, period, offset });   // logs roll toward you down a chute
+const Coals = (x, w) => ({ type: 'coals', x, w });                                   // hot coals: Water becomes steam
+const Fall = (x, w = 36) => ({ type: 'fall', x, w });                                 // waterfall: carries Water faster
+const Vent = (x, w) => ({ type: 'vent', x, w });                                      // rising steam: lifts Mist (over a chasm)
 
 const STAGES = [
-  { name: 'Kowloon Rain', lesson: 'yield', theme: 'alley', end: 1580,
+  { name: 'Kowloon Rain', lesson: 'yield', theme: 'alley', end: 1700,
     quote: 'Empty your mind. Be formless, shapeless, like water.',
-    obs: [ S(70, 'drag to flow'), L(190, 50), S(270, 'water already fits'), L(330, 40),
-           S(410, 'plum blossom posts — water spans them'), Poles(470, 4, 12),
-           S(590, 'flick up — release your form'), V(680), S(720, 'let go. you return to water.'),
-           L(790, 70), V(960), L(1005, 40), S(1080, 'too far apart — float across'), Poles(1140, 3, 28),
-           L(1310, 30), V(1390), L(1440, 80) ] },
+    obs: [ S(60, 'the current carries you — swipe to change form'), L(200, 50), S(290, 'water already fits'), L(340, 40),
+           Poles(440, 4, 12), S(570, 'swipe up — release your form'), V(650), S(690, 'it fades back to water — or swipe down'),
+           L(760, 60), V(920), L(965, 40), S(1040, 'too far apart — float across'), Poles(1100, 3, 28), L(1270, 30),
+           S(1310, 'falling water carries water faster'), Fall(1360), L(1430, 40), V(1510), L(1560, 70) ] },
 
-  { name: 'Bamboo Grove', lesson: 'release', theme: 'bamboo', end: 1700,
+  { name: 'Bamboo Grove', lesson: 'release', theme: 'bamboo', end: 1850,
     quote: 'You put water into a cup, it becomes the cup. You put water into a bottle, it becomes the bottle.',
-    obs: [ S(70, 'mist drifts over what cannot hold you'), H(220, 50), L(330, 50), Poles(430, 4, 12),
-           S(560, 'high arm: flow under · low arm: float over'), Spin(640, 40, 3, 0), L(750, 40), H(850, 56), V(945),
-           Spin(1040, 40, 2.6, 0.8), Poles(1140, 3, 28), L(1310, 50), Spin(1420, 40, 3, 1.5), V(1520), L(1570, 60) ] },
+    obs: [ S(60, 'mist drifts over what cannot hold you'), H(200, 50), L(300, 50), S(380, 'logs roll toward you — float over'),
+           Log(430, 170, 1.8, 0), Poles(650, 4, 12), S(740, 'high arm: flow under · low arm: float over'), Spin(790, 40, 3, 0),
+           L(890, 40), S(950, 'rising steam lifts mist across'), H(1000, 150), Vent(1040, 70), L(1200, 40),
+           Spin(1290, 40, 2.6, 0.8), Log(1360, 150, 1.6, 0.5), V(1550), Poles(1590, 3, 28), L(1760, 50) ] },
 
-  { name: 'The Kwoon', lesson: 'hold, briefly', theme: 'dojo', end: 1700,
+  { name: 'The Kwoon', lesson: 'hold, briefly', theme: 'dojo', end: 1880,
     quote: 'Pliability is life. Rigidity is death.',
-    obs: [ S(70, 'flick sideways — stand firm, briefly'), G(200, 100), L(360, 40),
-           S(440, 'the heavy bag swings — time it, or stand firm'), Bag(560, 2.4, 0), L(650, 36),
-           S(700, 'ice can move what water cannot'), Stone(760), H(820, 26), L(900, 40), G(990, 100), V(1150),
-           Bag(1260, 2.2, 0.7), Spin(1350, 40, 2.8, 0.3), Bag(1470, 2.4, 1.2), L(1560, 40) ] },
+    obs: [ S(60, 'swipe sideways — stand firm, briefly'), G(180, 100), L(330, 40),
+           S(400, 'the heavy bag swings — time it, or stand firm'), Bag(510, 2.4, 0), L(600, 36),
+           S(650, 'ice can move what water cannot'), Stone(720), H(780, 26), L(850, 40),
+           S(910, 'hot coals turn water to steam'), Coals(970, 70), L(1085, 40), G(1170, 100),
+           Bag(1360, 2.2, 0.7), Log(1430, 130, 1.6, 0.3), V(1600), Spin(1650, 40, 2.8, 0.3), L(1750, 40) ] },
 
-  { name: 'Shaolin Courtyard', lesson: 'read the rhythm', theme: 'court', end: 1780,
+  { name: 'Shaolin Courtyard', lesson: 'read the rhythm', theme: 'court', end: 1960,
     quote: 'Be like water making its way through cracks. Do not be assertive, but adjust to the object, and you shall find a way around or through it.',
-    obs: [ S(70, 'read the rhythm — or hold, briefly'), P(220, 2.6, 0), P(360, 2.6, 1.3), L(460, 40),
-           S(530, 'the bell’s wave runs along the ground'), Bell(740, 2.4, 0, 160), V(790),
-           P(880, 2.2, 0), P(916, 2.2, 0.25), G(1030, 100), Bell(1300, 2.2, 0.6, 150), Poles(1340, 3, 12),
-           P(1450, 2.4, 0), Stone(1530), H(1590, 26), L(1660, 40) ] },
+    obs: [ S(60, 'read the rhythm — or hold, briefly'), P(200, 2.6, 0), P(330, 2.6, 1.3), L(430, 40),
+           S(490, 'the bell’s wave runs along the ground'), Bell(690, 2.4, 0, 160), V(740), Coals(820, 60), L(925, 40),
+           P(1000, 2.2, 0), P(1036, 2.2, 0.25), G(1130, 100), Bell(1400, 2.2, 0.6, 150), Poles(1440, 3, 12),
+           Log(1540, 120, 1.7, 0.4), Stone(1700), H(1760, 26), L(1820, 40) ] },
 
-  { name: 'Temple Peaks', lesson: 'the moment changes', theme: 'mount', end: 1740,
+  { name: 'Temple Peaks', lesson: 'the moment changes', theme: 'mount', end: 2020,
     quote: 'Using no way as way, having no limitation as limitation.',
-    obs: [ S(70, 'the gap is changing. read it.'), T(220, 3, 0), Poles(320, 3, 28), T(500, 3, 1.0), Spin(600, 40, 2.8, 0.4),
-           H(700, 60), T(830, 2.8, 0, 30), G(930, 90), Bell(1180, 2.4, 0.3, 130), T(1240, 3, 0.5), V(1330), L(1380, 40),
-           Stone(1470), H(1530, 26), T(1610, 2.6, 0.5, 36) ] },
+    obs: [ S(60, 'the gap is changing. read it.'), T(200, 3, 0), Poles(290, 3, 28), T(470, 3, 1.0),
+           S(540, 'falling water carries water faster'), Fall(600), T(680, 2.4, 0.6), Spin(780, 40, 2.8, 0.4),
+           H(880, 150), Vent(920, 70), T(1080, 2.8, 0, 30), G(1170, 90), Bell(1420, 2.4, 0.3, 130),
+           Log(1460, 120, 1.6, 0.2), V(1620), L(1670, 40), Stone(1750), H(1810, 26), T(1880, 2.6, 0.5, 36) ] },
 
-  { name: 'Ink Wash', lesson: 'no way as way', theme: 'ink', end: 2000,
+  { name: 'Ink Wash', lesson: 'no way as way', theme: 'ink', end: 2480,
     quote: 'Now, water can flow, or it can crash. Be water, my friend.',
-    obs: [ L(160, 40), V(250), L(290, 40), Poles(380, 4, 12), G(500, 90), Spin(660, 40, 2.6, 0.5), H(760, 56), V(850),
-           Bag(970, 2.4, 0.4), P(1060, 2.4, 0.4), T(1160, 3, 0.8), L(1260, 50), Bell(1460, 2.2, 0.2, 140),
-           Stone(1510), H(1570, 26), V(1650), Poles(1690, 3, 28), L(1860, 70) ] },
+    obs: [ L(140, 40), V(230), L(270, 40), Poles(360, 4, 12), G(480, 90), Coals(620, 60), L(720, 40),
+           Spin(800, 40, 2.6, 0.5), H(900, 56), V(990), Log(1050, 120, 1.6, 0.3), Bag(1240, 2.4, 0.4), P(1320, 2.4, 0.4),
+           Fall(1400), T(1470, 3, 0.8), L(1570, 50), Bell(1770, 2.2, 0.2, 140), Stone(1810), H(1870, 26),
+           H(1940, 140), Vent(1975, 70), V(2120), Poles(2160, 3, 28), L(2330, 70) ] },
 ];
 
 /* ---------------------------------------------------------------------
@@ -370,6 +389,9 @@ const Snd = {
   fizzle()   { this.noise(0.12, { vol: 0.04, freq: 2600, q: 3 }); },
   bump()     { this.tone(150, 0.14, { vol: 0.05, slide: 110 }); },
   thud()     { this.tone(110, 0.2, { vol: 0.09, slide: 70 }); this.noise(0.14, { vol: 0.05, freq: 400 }); },
+  tick(hi)   { this.tone(hi ? 880 : 587, hi ? 0.5 : 0.18, { vol: 0.06, type: 'triangle' }); if (hi) this.tone(1318, 0.4, { vol: 0.03, delay: 0.05 }); },
+  hiss()     { this.noise(0.45, { vol: 0.06, freq: 3500, to: 6000, q: 0.6 }); },
+  splash()   { this.noise(0.35, { vol: 0.05, freq: 1400, to: 600, q: 0.8 }); this.tone(660, 0.3, { vol: 0.03, slide: 990 }); },
   bell()     { this.tone(196, 2.6, { vol: 0.06, attack: 0.005 }); this.tone(396, 1.8, { vol: 0.03 }); this.tone(587, 1.1, { vol: 0.02 }); },
   strain()   { this.noise(0.4, { vol: 0.03, freq: 300, to: 180, q: 4 }); },
   fail()     { this.tone(330, 0.9, { slide: 165, vol: 0.07, attack: 0.05 }); this.noise(0.6, { vol: 0.03, freq: 900, to: 200 }); },
@@ -378,83 +400,55 @@ const Snd = {
 
 /* ---------------------------------------------------------------------
    6. INPUT
-   Drag anywhere = floating joystick for left/right.
-   Quick flick   = pour into a form:  down Water · sideways Ice · up Mist.
-   Keyboard (desktop testing): ← → move, ↑/W mist, ↓/S water, Space/E ice.
+   The current carries you forward on its own. You only choose the form.
+   Swipe anywhere:  up = Mist · down = Water · left or right = Ice.
+   A swipe fires as soon as the finger has travelled a short way, in any
+   direction and at any speed. Keyboard: ↑ mist, ↓ water, ← → ice.
    --------------------------------------------------------------------- */
-const Input = { move: 0, pid: null, ax: 0, cx: 0, samples: [], lastFlick: 0, keys: {},
-  get touching() { return this.pid !== null || Object.keys(this.keys).some(k => this.keys[k]); } };
+const SWIPE_MIN = 24;   // CSS px
+const Input = { pid: null, sx: 0, sy: 0, fired: false };
 
+function swipeForm(dx, dy) { return Math.abs(dy) > Math.abs(dx) ? (dy < 0 ? 'mist' : 'water') : 'ice'; }
 function onPointerDown(e) {
   Snd.init();
   if (e.target.closest && e.target.closest('button, .chip')) return;
-  if (state !== 'play') { handleTap(); return; }
+  if (state !== 'play' && state !== 'ready') { handleTap(); return; }
   if (Input.pid !== null) return;
-  Input.pid = e.pointerId;
-  Input.ax = Input.cx = e.clientX;
-  Input.samples = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }];
+  Input.pid = e.pointerId; Input.sx = e.clientX; Input.sy = e.clientY; Input.fired = false;
 }
 function onPointerMove(e) {
   if (e.pointerId !== Input.pid) return;
-  const now = e.timeStamp, x = e.clientX, y = e.clientY;
-  Input.samples.push({ x, y, t: now });
-  while (Input.samples.length > 2 && now - Input.samples[0].t > 150) Input.samples.shift();
-  const s0 = Input.samples[0], dx = x - s0.x, dy = y - s0.y, dt = Math.max(1, now - s0.t);
-  const adx = Math.abs(dx), ady = Math.abs(dy);
-  if (now - Input.lastFlick > 220) {
-    let form = null;
-    if (ady > 34 && ady > adx * 1.2 && ady / dt > 0.35) form = dy < 0 ? 'mist' : 'water';
-    else if (adx > 56 && adx > ady * 1.6 && adx / dt > 0.75) form = 'ice';
-    if (form) {
-      Input.lastFlick = now;
-      Input.samples = [{ x, y, t: now }];
-      // A sideways flick keeps a gentle drift in the flick direction.
-      if (form === 'ice') Input.ax = x - Math.sign(dx) * 22;
-      pour(form);
-    }
-  }
-  Input.cx = x;
-  // floating anchor: never more than 60px behind the finger
-  const off = Input.cx - Input.ax;
-  if (Math.abs(off) > 60) Input.ax = Input.cx - Math.sign(off) * 60;
+  const dx = e.clientX - Input.sx, dy = e.clientY - Input.sy;
+  if (Math.hypot(dx, dy) < SWIPE_MIN) return;
+  pour(swipeForm(dx, dy));
+  Input.sx = e.clientX; Input.sy = e.clientY; Input.fired = true;   // keep sliding to chain another swipe
 }
 function onPointerUp(e) {
   if (e.pointerId !== Input.pid) return;
-  Input.pid = null; Input.samples = [];
+  const dx = e.clientX - Input.sx, dy = e.clientY - Input.sy;
+  if (!Input.fired && Math.hypot(dx, dy) >= SWIPE_MIN * 0.7) pour(swipeForm(dx, dy));  // a very quick flick
+  Input.pid = null;
 }
 window.addEventListener('pointerdown', onPointerDown, { passive: true });
 window.addEventListener('pointermove', onPointerMove, { passive: true });
 window.addEventListener('pointerup', onPointerUp);
-window.addEventListener('pointercancel', onPointerUp);
+window.addEventListener('pointercancel', e => { if (e.pointerId === Input.pid) Input.pid = null; });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-function readMove() {
-  let m = 0;
-  if (Input.pid !== null) {
-    const off = Input.cx - Input.ax;
-    m = Math.abs(off) < 6 ? 0 : clamp((off - Math.sign(off) * 6) / 40, -1, 1);
-  }
-  if (Input.keys.right) m += 1;
-  if (Input.keys.left) m -= 1;
-  return clamp(m, -1, 1);
-}
-
-const KEYMAP = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
 window.addEventListener('keydown', e => {
   Snd.init();
   if (e.repeat) return;
-  if (state === 'title') { if (e.key === 'Enter') startStage(firstUncleared(), true); return; }
-  if (state !== 'play') { if (e.key === 'Enter' || e.key === ' ') handleTap(); return; }
-  if (KEYMAP[e.key]) Input.keys[KEYMAP[e.key]] = true;
-  else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { Input.keys.hold = true; pour('mist'); }
+  if (state === 'title') {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') selectStage((sel + (e.key === 'ArrowRight' ? 1 : STAGES.length - 1)) % STAGES.length);
+    if (e.key === 'Enter') startStage(sel, true);
+    return;
+  }
+  if (state !== 'play' && state !== 'ready') { if (e.key === 'Enter' || e.key === ' ') handleTap(); return; }
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') pour('mist');
   else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') pour('water');
-  else if (e.key === ' ' || e.key === 'e' || e.key === 'E' || e.key === 'Shift') { Input.keys.hold = true; pour('ice'); }
+  else if (['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D', ' '].includes(e.key)) pour('ice');
   if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
-});
-window.addEventListener('keyup', e => {
-  if (KEYMAP[e.key]) Input.keys[KEYMAP[e.key]] = false;
-  if (['ArrowUp', 'w', 'W', ' ', 'e', 'E', 'Shift'].includes(e.key)) Input.keys.hold = false;
 });
 
 /* ---------------------------------------------------------------------
@@ -509,12 +503,12 @@ function fits(form, x, y) {
 }
 
 function pour(form, forced = false) {
-  if (!p || p.dead || (state !== 'play' && !forced)) return;
+  if (!p || p.dead || (state !== 'play' && state !== 'ready' && !forced)) return;
   if (form === p.form) {               // re-affirming a form refreshes its hold (not its age)
     if (form !== 'water') p.hold = 1;
     return;
   }
-  if (!forced && p.cooldown > 0) return;
+  if (!forced && p.cooldown > 0) { p.queued = form; p.queueT = 0.4; return; }   // remembered, applied next
   if (!forced && !fits(form, p.x, p.y)) {   // the situation does not allow it: a soft fizzle
     p.fizzT = 0.25; Snd.fizzle();
     emit(5, { x: p.x, y: p.y - 8, type: FORMS[form] === FORMS.ice ? 'crystal' : 'drop', color: FORMS[form].color, sp: 30, life: 0.35 });
@@ -535,11 +529,12 @@ function updateForm(dt) {
   if (p.cooldown > 0) p.cooldown -= dt;
   if (p.pourT > 0) p.pourT -= dt;
   p.morph = Math.min(1, p.morph + dt / POUR_TIME);
+  if (p.queued) { p.queueT -= dt; if (p.queueT <= 0) p.queued = null; else if (p.cooldown <= 0) { const q = p.queued; p.queued = null; pour(q); } }
   if (p.form === 'water') { p.strain = damp(p.strain, 0, 6, dt); return; }
 
   p.age += dt;
   run.formTime += dt;
-  p.hold -= (Input.touching ? HOLD_DECAY_TOUCH : HOLD_DECAY_RELEASE) * dt;
+  p.hold -= dt / FORM_LIFE;                    // the soft pull home to Water
   p.strain = clamp((p.age - STRAIN_START) / STRAIN_SPAN, 0, 1);
   if (p.strain > 0 && !p.strainWarned) { p.strainWarned = true; Snd.strain(); }
   if (p.strain > 0 && Math.random() < p.strain * dt * 14) {
@@ -596,6 +591,7 @@ function supportAt(form, x) {
   for (const o of obs) {
     if (o.type !== 'poles' || x <= o.x || x >= o.x + o.w) continue;
     const half = form === 'water' ? FORMS.water.w / 2 - 3 : form === 'mist' ? 8 : 3;
+    if (form === 'mist') return true;                                       // mist drifts on from post to post
     if (x - half < o.x || x + half > o.x + o.w) return true;                 // still on the lip
     return poleXs(o).some(px => px + POLE_W > x - half && px < x + half);
   }
@@ -638,8 +634,9 @@ function updateObstacles(dt) {
         // The gap closes around you: yield if you can, otherwise you are caught.
         if (p.form !== 'water' && o.clear >= FORMS.water.h) { pour('water', true); emit(6, { x: p.x, y: p.y - 6, type: 'drop', color: '#7fd8e2', sp: 40, life: 0.5 }); }
         else if (o.clear < FORMS.water.h) {
-          if (hOverlap(bx, o) <= 7) { nudgeOut(o); nearMiss(o); }   // only an edge was caught
-          else fail('gate');
+          // You can't wait in a current, so a closing gate pushes you back out rather than catching you.
+          if (hOverlap(bx, o) <= 7) { nudgeOut(o); nearMiss(o); }
+          else { p.x = o.x - (FORMS[p.form].w / 2 - 2) - 0.5; knock(-1); }
         }
       }
     }
@@ -692,6 +689,35 @@ function updateObstacles(dt) {
       }
     }
     if (o.type === 'stone' && o.fallen) o.fy = damp(o.fy || 0, o.h, 10, dt);
+    if (o.type === 'log') {
+      // Logs roll down the chute toward you: float over, break them as Ice, or take the knock.
+      const T = st + o.offset, k0 = Math.floor(T / o.period);
+      o.logs = [];
+      for (let k = k0; k > k0 - 8; k--) {
+        const a = T - k * o.period; if (a < 0) continue;
+        const lx = o.x + o.w - a * LOG_V; if (lx < o.x - 6) break;
+        if (o.broken[k]) continue;
+        o.logs.push({ k, x: lx, rot: a * LOG_V / 5 });
+      }
+      if (bx) for (const lg of o.logs) {
+        if (p.form !== 'mist' && bx.l < lg.x + 5 && bx.r > lg.x - 5 && bx.b > -10) {
+          if (p.form === 'ice') { o.broken[lg.k] = true; thud(lg.x, -5); emit(8, { x: lg.x, y: -5, type: 'dust', color: '#b08250', sp: 50, up: 30, g: 200, life: 0.6 }); }
+          else if (!o.hit[lg.k]) { o.hit[lg.k] = true; knock(-1); }
+        } else if (p.form === 'mist' && !o.over[lg.k] && Math.abs(lg.x - p.x) < 4) { o.over[lg.k] = true; pulse = Math.max(pulse, 0.45); p.glow = Math.max(p.glow, 0.7); Snd.pass(); }
+      }
+    }
+    if (o.type === 'coals') {
+      // Hot coals: Water turns to steam, Ice melts quickly, Mist floats above.
+      if (bx && p.x > o.x && p.x < o.x + o.w) {
+        if (p.form === 'water' && p.y > -2) {
+          o.heat += dt;
+          if (o.heat > 0.1) { o.heat = 0; pour('mist', true); Snd.hiss(); emit(14, { x: p.x, y: -4, type: 'mist', color: '#f2f2f2', sp: 30, up: 30, life: 1 }); }
+        } else if (p.form === 'ice') {
+          p.hold -= dt * 1.6;
+          if (Math.random() < dt * 25) emit(1, { x: p.x + rnd(-8, 8), y: -rnd(2, 20), type: 'mist', color: '#f2f2f2', sp: 15, up: 20, life: 0.7 });
+        }
+      } else o.heat = 0;
+    }
     if (o.ripple) o.ripple = Math.max(0, o.ripple - dt * 1.5);
   }
 }
@@ -759,7 +785,7 @@ function moveX(dx) {
     }
     nx = dx > 0 ? s.l - half - 0.01 : s.r + half + 0.01;
     if (Math.abs(p.vx) > 25 && p.bumpT <= 0) {
-      p.bumpT = 0.45; p.squash = 0.6; Snd.bump();
+      p.bumpT = 1.2; p.squash = 0.6; Snd.bump();
       emit(4, { x: dx > 0 ? s.l : s.r, y: p.y - 6, type: p.form === 'ice' ? 'crystal' : 'drop', color: f.color, sp: 25, life: 0.4 });
     }
     p.vx *= -0.15;
@@ -790,10 +816,18 @@ function updatePlayer(dt) {
   if (p.pushT > 0) p.pushT -= dt;
 
   // --- horizontal: guide the current, don't steer a rigid body
-  let input = state === 'play' && !(p.knockT > 0) ? readMove() : 0;
+  let input = state === 'play' && !(p.knockT > 0) ? 1 : 0;     // the current always carries you forward
   let maxV = f.speed * (1 - 0.55 * p.strain) * (p.pourT > 0 ? 0.55 : 1);
   if (obs.some(o => o.type === 'press' && o.held)) maxV *= 0.6;
   if (p.pushT > 0) maxV *= 0.55;                       // the stone is heavy
+  // Waterfall: Water joins it and is carried faster; Ice is slowed; Mist is beaten back.
+  const fall = obs.find(o => o.type === 'fall' && p.x > o.x - 4 && p.x < o.x + o.w + 4);
+  if (fall) {
+    if (p.form === 'water') { if (!(p.boostT > 0)) { Snd.splash(); p.glow = 1; } p.boostT = 0.7; }
+    else if (p.form === 'ice') maxV *= 0.45;
+    else if (state === 'play') knock(-1);
+  }
+  if (p.boostT > 0) { p.boostT -= dt; if (p.form === 'water') maxV *= 1.7; }
   let target = input * maxV;
   if (state === 'clear') target = clamp((stage.end + 22 - p.x) * 2, -30, 30);
   p.vx = damp(p.vx, target, p.knockT > 0 ? 2.5 : f.accel, dt);
@@ -814,8 +848,10 @@ function updatePlayer(dt) {
 
   // --- vertical: gentle gravity; mist hovers, and sinks over emptiness
   const ground = supportAt(p.form, p.x);
+  const vent = p.form === 'mist' && obs.find(o => o.type === 'vent' && p.x > o.x - 6 && p.x < o.x + o.w + 6);
   if (p.form === 'mist') {
-    if (ground && p.y <= 3) p.vy = damp(p.vy, (-MIST_HOVER - p.y) * 5, 10, dt);
+    if (vent) p.vy = damp(p.vy, (-32 - p.y) * 4, 8, dt);          // rising steam lifts what has no weight
+    else if (ground && p.y <= 3) p.vy = damp(p.vy, (-MIST_HOVER - p.y) * 5, 10, dt);
     else p.vy = MIST_SINK;
     p.y += p.vy * dt;
   } else {
@@ -1633,6 +1669,77 @@ function drawObstacles(t) {
         break;
       }
 
+      case 'log': {
+        // A pile of logs at the top of the chute; logs roll toward the traveller.
+        const px = Math.round(o.x + o.w - camX);
+        b.fillStyle = '#2a1810'; b.fillRect(px + 2, GY - 26, 2, 26); b.fillRect(px + 20, GY - 26, 2, 26);
+        [[8, -5], [16, -5], [12, -13], [20, -13], [16, -21]].forEach(([dx, dy]) => {
+          b.fillStyle = '#7a5232'; b.beginPath(); b.arc(px + dx, GY + dy, 4.5, 0, 7); b.fill();
+          b.fillStyle = '#c69a62'; b.beginPath(); b.arc(px + dx, GY + dy, 2.5, 0, 7); b.fill();
+          b.fillStyle = '#7a5232'; b.fillRect(px + dx, GY + dy, 1, 1);
+        });
+        b.fillStyle = 'rgba(0,0,0,0.12)'; b.fillRect(x, GY, o.w, 1);
+        for (const lg of o.logs) {
+          const lx = Math.round(lg.x - camX);
+          b.fillStyle = 'rgba(0,0,0,0.2)'; b.fillRect(lx - 4, GY, 9, 1);
+          b.fillStyle = '#7a5232'; b.beginPath(); b.arc(lx, GY - 5, 5, 0, 7); b.fill();
+          b.fillStyle = '#b08250'; b.beginPath(); b.arc(lx, GY - 5, 3, 0, 7); b.fill();
+          b.fillStyle = '#5e3d24';
+          b.fillRect(Math.round(lx - Math.cos(lg.rot) * 3), Math.round(GY - 5 + Math.sin(lg.rot) * 3), 1, 1);
+          b.fillRect(Math.round(lx + Math.cos(lg.rot) * 3), Math.round(GY - 5 - Math.sin(lg.rot) * 3), 1, 1);
+        }
+        break;
+      }
+
+      case 'coals': {
+        // An iron tray of glowing coals with heat rising off it.
+        b.fillStyle = 'rgba(255,120,40,0.10)'; b.fillRect(x, GY - 12, o.w, 11);
+        b.fillStyle = '#2a1d18'; b.fillRect(x - 1, GY - 1, o.w + 2, 3);
+        const em = ['#ff7a2a', '#ffb347', '#d9381e', '#7a1f12'];
+        for (let i = 0; i < o.w; i += 2) {
+          b.fillStyle = em[(Math.floor(hash(i + o.x) * 4) + Math.floor(t * 6 + hash(i) * 4)) % 4];
+          b.fillRect(x + i, GY - 2 - (hash(i * 1.7 + o.x) > 0.6 ? 1 : 0), 2, 1);
+        }
+        for (let k = 0; k < 8; k++) {
+          const hx = x + Math.round(hash(k * 3.3 + o.x) * o.w), ph = ((t * 22 + hash(k) * 30) % 30);
+          b.fillStyle = `rgba(255,200,140,${(0.4 * (1 - ph / 30)).toFixed(2)})`; b.fillRect(hx + Math.round(Math.sin(t * 3 + k) * 1), GY - 3 - Math.round(ph), 1, 1);
+        }
+        break;
+      }
+
+      case 'fall': {
+        // A waterfall pouring from a stone lip down to the path.
+        const top = Math.max(0, GY - 150);
+        b.fillStyle = th.solidLo; b.fillRect(x - 4, top - 4, o.w + 8, 5);
+        b.fillStyle = 'rgba(160,220,238,0.32)'; b.fillRect(x, top, o.w, GY - top);
+        for (let k = 0; k < o.w; k += 3) {
+          const off = (t * 170 + hash(k + o.x) * 40) % 18;
+          b.fillStyle = 'rgba(235,250,255,0.55)';
+          for (let yy = top - 18 + off; yy < GY; yy += 18) b.fillRect(x + k, Math.max(top, Math.round(yy)), 1, 9);
+        }
+        b.fillStyle = 'rgba(235,250,255,0.6)';
+        for (let k = 0; k < 6; k++) { const sx = x - 3 + Math.round(hash(k * 2.1) * (o.w + 6)), sy = GY - 1 - Math.round(Math.abs(Math.sin(t * 9 + k)) * 4); b.fillRect(sx, sy, 1, 1); }
+        b.fillStyle = 'rgba(160,220,238,0.5)'; b.fillRect(x - 6, GY - 1, o.w + 12, 1);
+        break;
+      }
+
+      case 'vent': {
+        // Bamboo steam pipes rising from the chasm; warm steam lifts upward.
+        for (let px = x + 3; px < x + o.w - 2; px += 14) {
+          b.fillStyle = '#5f6e4c'; b.fillRect(px, GY + 6, 4, VH - GY);
+          b.fillStyle = '#86996a'; b.fillRect(px + 1, GY + 6, 1, VH - GY);
+          b.fillStyle = '#3f4a33'; for (let yy = GY + 14; yy < VH; yy += 12) b.fillRect(px, yy, 4, 1);
+          b.fillStyle = '#2f3826'; b.fillRect(px - 1, GY + 5, 6, 2);
+        }
+        for (let k = 0; k < 14; k++) {
+          const h = 70, ph = (t * 34 + k * 11) % h, yy = GY + 6 - ph;
+          const xx = x + hash(k * 1.9) * o.w + Math.sin(t * 2 + k) * 3;
+          b.fillStyle = `rgba(245,245,240,${(0.3 * (1 - ph / h)).toFixed(2)})`;
+          b.beginPath(); b.arc(xx, yy, 2 + ph / 18, 0, 7); b.fill();
+        }
+        break;
+      }
+
       case 'gate': {
         // Red lacquer lattice gate with gold studs, under a small tiled roof.
         const by = GY - Math.round(o.clear);
@@ -1756,25 +1863,37 @@ function render() {
    11. UI FLOW & MAIN LOOP
    --------------------------------------------------------------------- */
 const chips = [...document.querySelectorAll('.chip')];
-chips.forEach(c => c.addEventListener('pointerdown', e => { e.stopPropagation(); Snd.init(); if (state === 'play') pour(c.dataset.f); }));
+chips.forEach(c => c.addEventListener('pointerdown', e => { e.stopPropagation(); Snd.init(); if (state === 'play' || state === 'ready') pour(c.dataset.f); }));
 
 const NUMERALS = ['一', '二', '三', '四', '五', '六'];
-/* Title: every stage is open; the suggested next one glows. */
+/* Title: every stage is open. Tap a card to choose it (the background previews it), then begin. */
+let sel = 0;
 function buildStages() {
   const box = $('#stageGrid'); box.innerHTML = '';
-  const next = firstUncleared();
   STAGES.forEach((s, i) => {
     const bt = document.createElement('button');
-    bt.className = 'card' + (save.d.cleared[i] ? ' done' : '') + (i === next ? ' next' : '');
+    bt.className = 'card' + (save.d.cleared[i] ? ' done' : '');
     bt.innerHTML = `<span class="n">${NUMERALS[i]}</span><span class="nm"></span><span class="ls"></span>`;
     bt.querySelector('.nm').textContent = s.name; bt.querySelector('.ls').textContent = s.lesson;
-    bt.addEventListener('click', e => { e.stopPropagation(); Snd.init(); startStage(i, true); });
+    bt.addEventListener('click', e => { e.stopPropagation(); Snd.init(); selectStage(i); });
     box.appendChild(bt);
   });
-  const cleared = STAGES.filter((_, i) => save.d.cleared[i]).length;
-  $('#beginBtn').textContent = cleared === 0 ? 'begin' : cleared === STAGES.length ? 'play again' : `continue · ${STAGES[next].name}`;
 }
-$('#beginBtn').addEventListener('click', e => { e.stopPropagation(); Snd.init(); startStage(firstUncleared(), true); });
+function selectStage(i) {
+  if (sel !== i) Snd.tick(false);
+  sel = i; stage = STAGES[i]; theme = THEMES[stage.theme];
+  [...document.querySelectorAll('#stageGrid .card')].forEach((c, k) => c.classList.toggle('sel', k === i));
+  $('#beginBtn').textContent = `begin · ${STAGES[i].name}`;
+}
+$('#beginBtn').addEventListener('click', e => { e.stopPropagation(); Snd.init(); startStage(sel, true); });
+
+/* 3 · 2 · 1 · flow */
+let readyT = 0, readyShown = -1;
+function showCount(text, go) {
+  const c = $('#count');
+  c.textContent = text; c.classList.toggle('go', !!go);
+  c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+}
 
 let cardTimer = null;
 function showCard() {
@@ -1788,10 +1907,10 @@ function showCard() {
 
 function startStage(i, fresh) {
   stageIdx = i; stage = STAGES[i]; theme = THEMES[stage.theme];
-  obs = stage.obs.map(o => ({ ...o, passed: false, watch: 0, bottom: -PRESS_UP, prevBottom: -PRESS_UP, clear: 60, phase: '', held: false, ripple: 0, nearDone: false, filled: false, fallen: null, fy: 0, waves: [] }));
+  obs = stage.obs.map(o => ({ ...o, passed: false, watch: 0, bottom: -PRESS_UP, prevBottom: -PRESS_UP, clear: 60, phase: '', held: false, ripple: 0, nearDone: false, filled: false, fallen: null, fy: 0, waves: [], logs: [], broken: {}, hit: {}, over: {}, heat: 0 }));
   st = 0; p = newPlayer(); camX = 0; timeScale = 1; wash = 0; pulse = 0; parts.length = 0;
   run.formTime = 0; run.pours = 0;
-  state = 'play';
+  state = 'ready'; readyT = fresh ? 2.1 : 0.7; readyShown = -1;   // a full count on a new stage, a breath on a retry
   ['#title', '#quote', '#end'].forEach(s => $(s).classList.remove('show'));
   $('#msg').classList.remove('show');
   $('#chips').classList.remove('hide');
@@ -1821,9 +1940,10 @@ function showEnd() {
 
 function showTitle() {
   state = 'title';
-  stageIdx = 0; stage = STAGES[0]; theme = THEMES.alley; obs = [];
+  obs = [];
   p = newPlayer(); timeScale = 1; wash = 0; parts.length = 0;
   buildStages();
+  selectStage(stageIdx || firstUncleared());
   ['#quote', '#end'].forEach(s => $(s).classList.remove('show'));
   $('#msg').classList.remove('show'); $('#chips').classList.add('hide'); $('#stageCard').classList.remove('show');
   $('#title').classList.add('show');
@@ -1860,7 +1980,17 @@ function update(realDt) {
   worldT += dt;
   pulse = Math.max(0, pulse - realDt * 1.6);
 
-  if (state === 'title') {
+  if (state === 'ready') {
+    // countdown: the world waits; you may already choose a form
+    readyT -= realDt;
+    const n = Math.ceil(readyT / 0.7);
+    if (readyT > 0 && n !== readyShown) { readyShown = n; showCount(String(n)); Snd.tick(false); }
+    if (readyT <= 0) { state = 'play'; showCount('flow', true); Snd.tick(true); }
+    updateObstacles(0);
+    if (!p.dead) updatePlayer(dt);
+    camX = damp(camX, clamp(p.x - VW * 0.27, 0, Math.max(0, stage.end + 90 - VW)), 6, realDt);
+    updateChips();
+  } else if (state === 'title') {
     camX += 10 * realDt;
     // standing off to the side, clear of the title text
     p.x = camX + VW * (VW > VH ? 0.1 : 0.86); p.y = 0; p.vx = 20; p.facing = 1; p.calm = true; p.calmT = 5;

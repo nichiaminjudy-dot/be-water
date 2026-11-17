@@ -8,12 +8,14 @@ You do not master three powers. You practise responding without rigidity: see wh
 
 ## How to play
 
-- **Drag left / right** anywhere to flow.
-- **Flick** to pour into a form:
+The current carries you forward on its own; you only choose the form. Pick a stage on the title screen, press **begin**, and after a 3 · 2 · 1 you start moving.
+
+- **Swipe** anywhere to pour into a form:
   - **↓ Water**: the resting state. Low and long, it fits through cracks.
-  - **↔ Ice**: brief solidity. Holds up falling weight and stands in the wind.
-  - **↑ Mist**: complete release. Passes through veils and drifts over gaps, but wind scatters it.
-- **Let go** and you settle back into Water. Holding Ice or Mist too long starts to feel wrong, and eventually the form lets go by itself.
+  - **← → Ice**: brief solidity. Holds up falling weight, stands in the wind, pushes stone.
+  - **↑ Mist**: complete release. Passes through veils and drifts over gaps, but force scatters it.
+- Ice and Mist fade back to Water after about three seconds. Swipe the same way again to refresh, or swipe down to let go early.
+- Swipes made during a change are remembered and applied right after, so none are lost.
 
 ## Training apparatus
 
@@ -24,13 +26,17 @@ Every stage mixes situations so no single form carries you through:
 - **Heavy bag**: swings across the path. Time your crossing, or meet it as Ice.
 - **Stone lock**: blocks every form. Only Ice can push it, and pushing it into the hole ahead fills the hole.
 - **Temple bell**: each strike sends a wave along the ground. Mist floats over it, Ice stays rooted, Water can slip between waves.
+- **Rolling logs**: roll toward you down a chute. Mist floats over, Ice breaks them, Water is knocked back.
+- **Hot coals**: turn Water into steam whether you like it or not; Ice melts. Be ready to swipe back down.
+- **Waterfall**: carries Water faster, slows Ice, beats Mist back.
+- **Steam vents**: rising steam over a wide chasm lifts Mist high enough to cross.
 - Plus low beams (Water), silk scroll veils (Mist), wind (Ice), falling stone weights and closing lattice gates.
 
 Blows knock you back instead of ending the run.
 
 Six short stages (about 20–40 seconds each), all open from the start: pick any from the title screen. After each clear: a moment of stillness, a quote, and how long you needed to hold a form. Less is lighter.
 
-Desktop keys: ← → move · ↑/W mist · ↓/S water · Space/E ice.
+Desktop keys: ↑ mist · ↓ water · ← → ice · on the title, ← → choose a stage and Enter begins.
 
 ## Tech
 
