@@ -19,7 +19,8 @@
   canvas#game { position:fixed; inset:0; width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
 
   /* ---------- HUD ---------- */
-  #hud { position:fixed; inset:0; pointer-events:none; }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:20; }   /* above the overlays, so ♪ and ☰ always work */
+  #chips.hide .chip { pointer-events:none; }
   #stageCard { position:absolute; top:calc(env(safe-area-inset-top) + 16%); left:0; right:0; text-align:center;
     opacity:0; transition:opacity 1.1s ease; font-family:var(--serif); text-shadow:0 1px 8px rgba(0,0,0,.35); }
   #stageCard.show { opacity:1; }
@@ -59,7 +60,7 @@
   #msg .cause { font-size:17px; font-style:italic; opacity:.75; }
   #msg .again { font-size:24px; margin-top:6px; letter-spacing:.04em; }
 
-  #quote { background:radial-gradient(ellipse at center, rgba(12,16,22,.25), rgba(12,16,22,.6)); justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 13vh); }
+  #quote { background:linear-gradient(180deg, rgba(12,16,22,.62) 0%, rgba(12,16,22,.42) 50%, rgba(12,16,22,.08) 72%, rgba(12,16,22,0) 100%); justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 13vh); }
   @media (orientation: landscape) { #quote { padding-top:6vh; } #quote .stats { margin-top:22px; } #quote .who { margin-top:12px; } }
   #quote > * { opacity:0; transform:translateY(6px); transition:opacity 1.6s ease, transform 1.6s ease; }
   #quote.show > * { opacity:1; transform:none; }
@@ -352,11 +353,17 @@ const PENTA = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3, 784.0];
 const Snd = {
   ac: null, master: null, on: true,
   init() {
-    if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
-    try {
-      this.ac = new (window.AudioContext || window.webkitAudioContext)();
-      this.master = this.ac.createGain(); this.master.gain.value = 0.45; this.master.connect(this.ac.destination);
-    } catch (e) { this.ac = null; }
+    // iPhone: let web audio play even when the ring/silent switch is on silent
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (!this.ac) {
+      try {
+        this.ac = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ac.createGain(); this.master.gain.value = 0.45; this.master.connect(this.ac.destination);
+        const sb = this.ac.createBufferSource(); sb.buffer = this.ac.createBuffer(1, 1, 22050); sb.connect(this.ac.destination); sb.start(0); // unlock
+      } catch (e) { this.ac = null; return; }
+    }
+    if (this.ac.state !== 'running') this.ac.resume().catch(() => {});
+    if (this.on) Music.start();
   },
   tone(freq, dur, { type = 'sine', vol = 0.12, slide = null, delay = 0, attack = 0.01 } = {}) {
     if (!this.ac || !this.on) return;
@@ -392,10 +399,87 @@ const Snd = {
   tick(hi)   { this.tone(hi ? 880 : 587, hi ? 0.5 : 0.18, { vol: 0.06, type: 'triangle' }); if (hi) this.tone(1318, 0.4, { vol: 0.03, delay: 0.05 }); },
   hiss()     { this.noise(0.45, { vol: 0.06, freq: 3500, to: 6000, q: 0.6 }); },
   splash()   { this.noise(0.35, { vol: 0.05, freq: 1400, to: 600, q: 0.8 }); this.tone(660, 0.3, { vol: 0.03, slide: 990 }); },
+  whoosh(soft) { this.noise(soft ? 0.09 : 0.2, { vol: soft ? 0.025 : 0.05, freq: 700, to: 2600, q: 0.8 }); },
+  kiai()     { this.tone(620, 0.22, { type: 'sawtooth', vol: 0.02, slide: 980, attack: 0.02 }); this.noise(0.18, { vol: 0.03, freq: 1600, to: 2400, q: 2 }); },
+  tok()      { this.tone(1150, 0.05, { type: 'triangle', vol: 0.035 }); this.noise(0.04, { vol: 0.02, freq: 2000, q: 2 }); },
   bell()     { this.tone(196, 2.6, { vol: 0.06, attack: 0.005 }); this.tone(396, 1.8, { vol: 0.03 }); this.tone(587, 1.1, { vol: 0.02 }); },
   strain()   { this.noise(0.4, { vol: 0.03, freq: 300, to: 180, q: 4 }); },
   fail()     { this.tone(330, 0.9, { slide: 165, vol: 0.07, attack: 0.05 }); this.noise(0.6, { vol: 0.03, freq: 900, to: 200 }); },
   clear()    { [0, 2, 4, 5, 7].forEach((n, i) => this.tone(PENTA[n], 2.2, { vol: 0.05, delay: i * 0.22, attack: 0.08 })); },
+};
+
+/* ---------------------------------------------------------------------
+   MUSIC – generated, never repeating: plucked pentatonic strings over a
+   soft drone, an echo, and a wood block once you're moving. Each stage
+   has its own key. The ♪ button turns all audio on or off.
+   --------------------------------------------------------------------- */
+const KEYS = [293.66, 261.63, 329.63, 246.94, 220.0, 293.66];   // D C E B A D
+const PENTA_STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];        // gong-scale pentatonic over two octaves
+const Music = {
+  playing: false, timer: null, next: 0, step: 0, deg: 2, root: KEYS[0],
+  start() {
+    const ac = Snd.ac;
+    if (!ac || this.playing || !Snd.on) return;
+    this.playing = true;
+    this.out = ac.createGain(); this.out.gain.value = 0.0001; this.out.connect(Snd.master);
+    this.out.gain.exponentialRampToValueAtTime(0.6, ac.currentTime + 2.5);
+    this.bus = ac.createGain(); this.bus.connect(this.out);
+    const d = ac.createDelay(1); d.delayTime.value = 0.375; const fb = ac.createGain(); fb.gain.value = 0.3; const wet = ac.createGain(); wet.gain.value = 0.3;
+    this.bus.connect(d); d.connect(fb); fb.connect(d); d.connect(wet); wet.connect(this.out);
+    this.drones = [0.5, 0.75].map((m, i) => {
+      const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+      o.type = 'sine'; o.frequency.value = this.root * m; g.gain.value = 0.022;
+      lfo.frequency.value = 0.07 + i * 0.05; lg.gain.value = 0.012; lfo.connect(lg); lg.connect(g.gain);
+      o.connect(g); g.connect(this.out); o.start(); lfo.start();
+      return { o, lfo, m };
+    });
+    this.next = ac.currentTime + 0.2;
+    this.timer = setInterval(() => this.tick(), 90);
+  },
+  stop() {
+    if (!this.playing) return;
+    this.playing = false; clearInterval(this.timer);
+    const ac = Snd.ac, out = this.out, drones = this.drones;
+    out.gain.cancelScheduledValues(ac.currentTime);
+    out.gain.setValueAtTime(out.gain.value, ac.currentTime); out.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.8);
+    setTimeout(() => { drones.forEach(d => { d.o.stop(); d.lfo.stop(); }); out.disconnect(); }, 900);
+  },
+  setKey(i) {
+    this.root = KEYS[i] || KEYS[0];
+    if (this.playing) this.drones.forEach(d => d.o.frequency.setTargetAtTime(this.root * d.m, Snd.ac.currentTime, 1.5));
+  },
+  tick() {
+    const ac = Snd.ac;
+    while (this.next < ac.currentTime + 0.35) { this.schedule(this.next); this.next += 60 / 76 / 2; this.step++; }
+  },
+  pluck(t, f, vol, bend) {
+    const ac = Snd.ac, o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), g2 = ac.createGain(), lp = ac.createBiquadFilter();
+    o.type = 'triangle'; o2.type = 'sine';
+    o.frequency.setValueAtTime(bend ? f * 0.944 : f, t); if (bend) o.frequency.exponentialRampToValueAtTime(f, t + 0.12);   // a guzheng-style slide
+    o2.frequency.setValueAtTime(f * 2, t);
+    lp.type = 'lowpass'; lp.frequency.value = 2600;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+    g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(vol * 0.3, t + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(g); o2.connect(g2); g.connect(lp); g2.connect(lp); lp.connect(this.bus);
+    o.start(t); o2.start(t); o.stop(t + 1.9); o2.stop(t + 0.4);
+  },
+  block(t, vol) {
+    const ac = Snd.ac, o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(1250, t); o.frequency.exponentialRampToValueAtTime(800, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.1);
+  },
+  schedule(t) {
+    const s = this.step % 16, calm = state === 'title' || state === 'quote' || state === 'end';
+    const pattern = [1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0.6, 0, 1, 0, 0.4, 0];
+    if (Math.random() < pattern[s] * (calm ? 0.7 : 1)) {
+      this.deg = clamp(this.deg + [-2, -1, -1, 1, 1, 2, 0][Math.random() * 7 | 0], 0, PENTA_STEPS.length - 1);
+      const f = this.root * Math.pow(2, PENTA_STEPS[this.deg] / 12);
+      this.pluck(t, f, 0.075, Math.random() < 0.18);
+    }
+    if (s === 0 || s === 8) this.pluck(t, this.root / 2, 0.06, false);
+    if (!calm && (s === 4 || s === 12) && Math.random() < 0.75) this.block(t, 0.035);
+  },
 };
 
 /* ---------------------------------------------------------------------
@@ -1129,6 +1213,7 @@ function drawPuddle(t, form) {
 /* Player with pour morph: old form squashes away while the new one stretches in. */
 function drawPlayer() {
   const sx = Math.round(p.x - camX), sy = GY + Math.round(p.y);
+  if (p.cine) { drawCine(sx, GY); return; }
   let jx = 0, jy = 0;
   if (p.strain > 0) { jx = Math.round((Math.random() - 0.5) * 2 * p.strain); }
   if (p.fizzT > 0) jx += Math.round(Math.sin(p.fizzT * 80));
@@ -1172,6 +1257,273 @@ function drawPlayer() {
   drawFormShape(p.form, t);
   b.restore();
 }
+/* ---------------------------------------------------------------------
+   STAGE CLEAR CINEMATIC
+   1. On the still pool: a signature routine — footwork bounce, chain
+      punches, high side kick, thumb flick across the nose, salute.
+   2. While the quote appears he walks off to the right...
+   3. ...and steps back in, large in the foreground, with a scene of his
+      own for each stage.
+   --------------------------------------------------------------------- */
+const PUNCH_A = [
+  '....SSSS......',
+  '.YYYYYYYYYYYSS',
+  '.YYKYYYYKY..SS',
+  '.SSKYYYYK.....',
+  '..YKYYYYK.....',
+  '..YYYYYYYY....',
+  '.YYK....KYY...',
+  'YYK......KYY..',
+  'KKK......KKK..',
+];
+const PUNCH_B = [
+  '....SSSS......',
+  '.SSYYYYYYY....',
+  '.SSKYYYYKYYYSS',
+  '..YKYYYYK...SS',
+  '..YKYYYYK.....',
+  '..YYYYYYYY....',
+  '.YYK....KYY...',
+  'YYK......KYY..',
+  'KKK......KKK..',
+];
+const KICK = [
+  '....SSSS..........',
+  '.SSYYYYYY.........',
+  '.SSKYYYYK.........',
+  '...KYYYYK.........',
+  '...YYYYYYYYYYYYKKK',
+  '...YYYYYYYYYYYYKKK',
+  '...YK.............',
+  '...YK.............',
+  '..KKK.............',
+];
+const WALK1 = [
+  '....SSSS....',
+  '..YYYYYYYY..',
+  '.SKYYYYYYKS.',
+  '..KYYYYYYK..',
+  '...YYYYYY...',
+  '...YYYYYY...',
+  '..YK...KY...',
+  '.YK.....KY..',
+  'KK.......KK.',
+];
+const WALK2 = [
+  '....SSSS....',
+  '..YYYYYYYY..',
+  '.SKYYYYYYKS.',
+  '..KYYYYYYK..',
+  '...YYYYYY...',
+  '...YYYYYY...',
+  '....YKKY....',
+  '....YKKY....',
+  '...KKKKKK...',
+];
+const NUNCHAKU = [
+  '....SSSS..SS',
+  '..YYYYYYYYY.',
+  '.YYKYYYYKY..',
+  '.SYKYYYYK...',
+  '..YKYYYYK...',
+  '..YYYYYYYY..',
+  '.YYK....KYY.',
+  'YYK......KYY',
+  'KKK......KKK',
+];
+const CRANE_A = [
+  'S...SSSS...S',
+  'YY.YYYYYY.YY',
+  '.YYYYYYYYYY.',
+  '..KYYYYYYK..',
+  '...YYYYYY...',
+  '...YYYYYYYK.',
+  '...YK..YYKK.',
+  '...YK.......',
+  '..KKK.......',
+];
+const CRANE_B = [
+  '....SSSS....',
+  '.YYYYYYYYYY.',
+  'SYYYYYYYYYYS',
+  '..KYYYYYYK..',
+  '...YYYYYY...',
+  '...YYYYYYYK.',
+  '...YK..YYKK.',
+  '...YK.......',
+  '..KKK.......',
+];
+const BECKON = [
+  '....SSSS....',
+  '..YYYYYYYYSS',
+  '.YYKYYYYKY..',
+  '.SSKYYYYK...',
+  '..YKYYYYK...',
+  '..YYYYYYYY..',
+  '.YYK....KYY.',
+  'YYK......KYY',
+  'KKK......KKK',
+];
+const SIT = [
+  '....SSSS....',
+  '..YYYYYYYY..',
+  '.SYKYYYYKYS.',
+  '..YKYYYYKY..',
+  '..YYYYYYYYY.',
+  '..YYYYYYYYYY',
+];
+
+/* A figure built from a body map + the head, feet at (0,0). */
+function figure(body, { flip = false, bob = 0, pupil = 1, headDy = 0, pal = PAL.normal } = {}) {
+  drawMap(body, -6, -9 + bob, pal, { flip });
+  drawMap(HEAD, -6, -21 + bob + headDy, pal, { pupil });
+}
+function pline(x0, y0, x1, y1, c) {
+  b.fillStyle = c;
+  const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= n; i++) b.fillRect(Math.round(lerp(x0, x1, i / n)), Math.round(lerp(y0, y1, i / n)), 1, 1);
+}
+
+// --- the routine on the pool (times in seconds from the start of the cinematic)
+const ROUTINE = [
+  { until: 0.55, move: 'bounce' },
+  { until: 1.15, move: 'punches' },
+  { until: 1.75, move: 'kick' },
+  { until: 2.35, move: 'flick' },
+  { until: 2.9,  move: 'salute' },
+];
+const CINE_WALK = 2.9;            // walk off to the right
+const CINE_FG = CINE_WALK + 1.9;  // step into the foreground
+
+function cineUpdate(realDt) {
+  const t = clearT - p.cineStart;
+  const seg = ROUTINE.findIndex(r => t < r.until);
+  if (seg !== p.cineSeg) {
+    p.cineSeg = seg;
+    const mv = seg >= 0 ? ROUTINE[seg].move : 'walk';
+    if (mv === 'punches') Snd.whoosh();
+    if (mv === 'kick') { Snd.whoosh(); Snd.kiai(); emit(1, { x: p.x + 11, y: -5, type: 'spark', color: 'rgba(255,255,255,', sp: 0, life: 0.35 }); }
+    if (mv === 'salute') { pulse = Math.max(pulse, 0.5); }
+  }
+  if (p.cineSeg === 1) { const k = Math.floor((t - ROUTINE[0].until) / 0.09); if (k !== p.punchK) { p.punchK = k; if (k % 2 === 0) Snd.whoosh(true); } }
+  if (t > CINE_WALK) p.x += 62 * realDt;
+  // the foreground scene keeps its own little sounds
+  const fg = clearT - p.cineStart - CINE_FG - 1.0;
+  if (fg > 0) {
+    if (stage.theme === 'dojo') { const k = Math.floor(fg / 0.25) % 6; if (k !== p.fgK) { p.fgK = k; if (k < 4) Snd.tok(); } }
+    if (stage.theme === 'alley') { const k = Math.floor(fg * 14 / (Math.PI * 2)); if (k !== p.fgK) { p.fgK = k; Snd.whoosh(true); } }
+  }
+}
+
+function drawCine(sx, sy) {
+  const t = clearT - p.cineStart;
+  b.save(); b.translate(sx, sy);
+  const seg = ROUTINE.findIndex(r => t < r.until);
+  const mv = seg >= 0 ? ROUTINE[seg].move : 'walk';
+  if (mv === 'bounce') figure(BODY, { bob: Math.sin(t * 22) > 0 ? -1 : 0 });
+  else if (mv === 'punches') {
+    const k = Math.floor((t - ROUTINE[0].until) / 0.09);
+    figure(k % 2 ? PUNCH_B : PUNCH_A);
+    b.fillStyle = 'rgba(255,255,255,0.5)'; b.fillRect(9, -8 + (k % 2), 3, 1);       // speed lines
+  } else if (mv === 'kick') {
+    figure(KICK, { headDy: -1 });
+    b.fillStyle = 'rgba(255,255,255,0.45)'; b.fillRect(13, -7, 4, 1); b.fillRect(14, -3, 3, 1);
+  } else if (mv === 'flick') drawChibi(PAL.normal, 1, 'flick');
+  else if (mv === 'salute') drawChibi(PAL.normal, 1, 'calm');
+  else figure(Math.floor(t * 7) % 2 ? WALK1 : WALK2, { pupil: 1 });
+  b.restore();
+}
+
+/* ---- the foreground scene: one signature moment per stage ---- */
+function drawForeground() {
+  if (!p || !p.cine) return;
+  const t = clearT - p.cineStart - CINE_FG;
+  if (t < 0) return;
+  const land = VW > VH, S = land ? 2 : 3;
+  const tx = Math.round(land ? VW * 0.88 : VW * 0.5), ty = Math.round(land ? VH - 8 : VH - 26);
+  const enter = clamp(t / 1.0, 0, 1);
+  const x = Math.round(lerp(VW + 30 * S, tx, ease(enter)));
+  b.save(); b.translate(x, ty); b.scale(S, S);
+  b.fillStyle = 'rgba(0,0,0,0.28)'; b.beginPath(); b.ellipse(0, 0, 12, 2.2, 0, 0, 7); b.fill();
+  if (enter < 1) { figure(Math.floor(t * 7) % 2 ? WALK1 : WALK2, { flip: true, pupil: -1 }); b.restore(); return; }
+  const u = t - 1.0;
+  ({ alley: fgNunchaku, bamboo: fgCrane, dojo: fgDummy, court: fgPushups, mount: fgArmchair, ink: fgBeckon })[stage.theme](u);
+  b.restore();
+}
+
+// I · Kowloon Rain — nunchaku, spinning
+function fgNunchaku(u) {
+  figure(NUNCHAKU, { bob: Math.sin(u * 9) > 0.6 ? -1 : 0 });
+  const a = u * 14, hx = 6, hy = -16;
+  b.fillStyle = 'rgba(255,255,255,0.18)'; b.beginPath(); b.arc(hx, hy, 9, 0, 7); b.fill();
+  pline(5, -10, hx, hy, '#2a1810');                           // handle in his fist
+  const cx = hx + Math.cos(a) * 2, cy = hy + Math.sin(a) * 2;
+  pline(hx, hy, cx, cy, '#9aa0a8');                            // chain
+  pline(cx, cy, cx + Math.cos(a) * 7, cy + Math.sin(a) * 7, '#2a1810');
+  b.fillStyle = '#f5c518'; b.fillRect(Math.round(cx + Math.cos(a) * 7), Math.round(cy + Math.sin(a) * 7), 1, 1);
+}
+
+// II · Bamboo Grove — crane stance on a plum blossom post
+function fgCrane(u) {
+  b.fillStyle = '#5e3d24'; b.fillRect(-3, 0, 6, 40); b.fillStyle = '#8a5a32'; b.fillRect(-2, 0, 1, 40);
+  b.fillStyle = '#b08250'; b.fillRect(-4, 0, 8, 2);
+  figure(Math.sin(u * 1.6) > 0 ? CRANE_A : CRANE_B, { bob: Math.sin(u * 1.6) > 0.7 ? -1 : 0 });
+  for (let k = 0; k < 6; k++) {
+    const px = ((k * 23 - u * 8) % 60 + 60) % 60 - 30, py = -34 + ((u * 6 + k * 11) % 40);
+    b.fillStyle = k % 2 ? '#f2a7b8' : '#f7c9d3'; b.fillRect(Math.round(px), Math.round(py), 1, 1);
+  }
+}
+
+// III · The Kwoon — drilling the wooden dummy
+function fgDummy(u) {
+  const k = Math.floor(u / 0.25) % 6, hit = k < 4 && (u % 0.25) < 0.08, j = hit ? 1 : 0;
+  b.fillStyle = '#2a1810'; b.fillRect(10, -34, 14, 2); b.fillRect(22, -34, 2, 34);
+  b.fillStyle = '#7a5232'; b.fillRect(14 + j, -31, 5, 30); b.fillStyle = '#9a6d44'; b.fillRect(15 + j, -31, 1, 30);
+  b.fillStyle = '#5e3d24'; b.fillRect(8 + j, -24 - j, 6, 2); b.fillRect(9 + j, -20 + j, 5, 2); b.fillRect(8 + j, -14, 6, 2); b.fillRect(17 + j, -7, 4, 2);
+  if (k < 4) figure(k % 2 ? PUNCH_B : PUNCH_A); else figure(BODY, { bob: Math.sin(u * 20) > 0 ? -1 : 0 });
+  if (hit) { b.fillStyle = 'rgba(255,255,255,0.7)'; b.fillRect(8, -11 + (k % 2), 1, 1); b.fillRect(7, -12 + (k % 2), 1, 1); }
+}
+
+// IV · Shaolin Courtyard — two-finger push-ups
+function fgPushups(u) {
+  const h = 4 + Math.round((Math.sin(u * 3) + 1) * 1.5);       // chest height off the ground
+  const P = PAL.normal;
+  pline(-16, -h - 2, -27, -2, P.Y); pline(-16, -h - 1, -27, -1, P.Y); pline(-16, -h - 3, -27, -3, P.K);
+  b.fillStyle = P.K; b.fillRect(-30, -3, 3, 3);                 // shoes
+  b.fillStyle = P.Y; b.fillRect(-16, -h - 4, 20, 4);
+  b.fillStyle = P.K; b.fillRect(-16, -h - 2, 20, 1);            // stripe
+  b.fillStyle = P.S; b.fillRect(-8, -h - 5, 3, 1);              // the other hand resting on his back
+  b.fillStyle = P.S; b.fillRect(2, -h, 2, h - 1);               // straight arm
+  b.fillRect(1, -1, 1, 1); b.fillRect(4, -1, 1, 1);             // two fingers
+  drawMap(HEAD, 3, -h - 15, P, { pupil: 1 });
+  if (Math.sin(u * 3) < -0.95) { b.fillStyle = '#9fdcf0'; b.fillRect(15, -h - 12, 1, 2); }  // a bead of sweat
+}
+
+// V · Temple Peaks — relaxed in an armchair, legs crossed, foot shaking, tea in hand
+function fgArmchair(u) {
+  const P = PAL.normal, sh = Math.sin(u * 24) > 0 ? 0 : 1;
+  b.fillStyle = '#6e2a22'; b.fillRect(-10, -33, 20, 26); b.fillRect(-9, -34, 18, 1);
+  b.fillStyle = '#5a201a'; for (let yy = -30; yy < -10; yy += 5) for (let xx = -7; xx < 8; xx += 5) b.fillRect(xx, yy, 1, 1);
+  b.fillStyle = '#7e3328'; b.fillRect(-12, -16, 4, 9); b.fillRect(8, -16, 4, 9); b.fillRect(-11, -9, 22, 4);
+  b.fillStyle = '#3a1a12'; b.fillRect(-10, -5, 2, 5); b.fillRect(8, -5, 2, 5);
+  drawMap(SIT, -6, -16, P);
+  drawMap(HEAD, -6, -28 + (Math.sin(u * 1.2) > 0.85 ? 1 : 0), P, { pupil: 1 });
+  b.fillStyle = P.Y; b.fillRect(2, -10, 2, 9); b.fillStyle = P.K; b.fillRect(1, -1, 4, 1);   // the leg on the floor
+  b.fillStyle = P.Y; b.fillRect(5, -12, 5, 2); b.fillRect(9, -12 + sh, 2, 3);               // the crossed leg...
+  b.fillStyle = P.K; b.fillRect(9, -9 + sh, 3, 1);                                           // ...and its shaking foot
+  b.fillStyle = '#f0ece0'; b.fillRect(5, -15, 2, 2); b.fillStyle = '#c8b48a'; b.fillRect(5, -15, 2, 1);  // tea
+  if (Math.sin(u * 2) > 0) { b.fillStyle = 'rgba(255,255,255,0.5)'; b.fillRect(6, -18 - Math.round((u * 3) % 3), 1, 1); }
+}
+
+// VI · Ink Wash — "come on": the beckoning hand, and now and then the thumb across the nose
+function fgBeckon(u) {
+  const cyc = u % 4;
+  if (cyc > 3.2) { drawChibi(PAL.normal, 1, 'flick'); return; }
+  figure(BECKON, { bob: Math.sin(u * 14) > 0 ? -1 : 0 });
+  b.fillStyle = PAL.normal.S;
+  if (Math.floor(u * 3) % 2) b.fillRect(5, -10, 2, 1); else b.fillRect(6, -10, 1, 1);
+}
+
 function drawFormShape(form, t) {
   if (form === 'water') drawWater(p.facing, t);
   else if (form === 'ice') drawIce(p.strain, t);
@@ -1854,6 +2206,7 @@ function render() {
   drawParts();
   drawWeather();
   drawEffects();
+  if (state === 'quote' || state === 'clear') drawForeground();
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(buf, 0, 0, VW * SCALE, VH * SCALE);
   drawSigns();
@@ -1881,7 +2234,7 @@ function buildStages() {
 }
 function selectStage(i) {
   if (sel !== i) Snd.tick(false);
-  sel = i; stage = STAGES[i]; theme = THEMES[stage.theme];
+  sel = i; stage = STAGES[i]; theme = THEMES[stage.theme]; Music.setKey(i);
   [...document.querySelectorAll('#stageGrid .card')].forEach((c, k) => c.classList.toggle('sel', k === i));
   $('#beginBtn').textContent = `begin · ${STAGES[i].name}`;
 }
@@ -1910,7 +2263,8 @@ function startStage(i, fresh) {
   obs = stage.obs.map(o => ({ ...o, passed: false, watch: 0, bottom: -PRESS_UP, prevBottom: -PRESS_UP, clear: 60, phase: '', held: false, ripple: 0, nearDone: false, filled: false, fallen: null, fy: 0, waves: [], logs: [], broken: {}, hit: {}, over: {}, heat: 0 }));
   st = 0; p = newPlayer(); camX = 0; timeScale = 1; wash = 0; pulse = 0; parts.length = 0;
   run.formTime = 0; run.pours = 0;
-  state = 'ready'; readyT = fresh ? 2.1 : 0.7; readyShown = -1;   // a full count on a new stage, a breath on a retry
+  state = 'ready'; readyT = fresh ? 2.1 : 0.7; readyShown = -1;
+  Music.setKey(i);   // a full count on a new stage, a breath on a retry
   ['#title', '#quote', '#end'].forEach(s => $(s).classList.remove('show'));
   $('#msg').classList.remove('show');
   $('#chips').classList.remove('hide');
@@ -1951,13 +2305,20 @@ function showTitle() {
 
 function handleTap() {
   if (state === 'fail' && failT > 0.45) startStage(stageIdx, false);
-  else if (state === 'quote' && clearT > 3.2) { if (stageIdx < STAGES.length - 1) startStage(stageIdx + 1, true); else showEnd(); }
+  else if (state === 'quote' && p.cine && clearT - p.cineStart > CINE_WALK + 1.4) { if (stageIdx < STAGES.length - 1) startStage(stageIdx + 1, true); else showEnd(); }
   else if (state === 'end') showTitle();
 }
 function firstUncleared() { for (let i = 0; i < STAGES.length; i++) if (!save.d.cleared[i]) return i; return 0; }
 
 $('#btnSound').classList.toggle('off', !Snd.on);
-$('#btnSound').addEventListener('pointerdown', e => { e.stopPropagation(); Snd.init(); Snd.on = !Snd.on; save.d.sound = Snd.on; save.write(); $('#btnSound').classList.toggle('off', !Snd.on); });
+$('#btnSound').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  Snd.on = !Snd.on; save.d.sound = Snd.on; save.write();
+  $('#btnSound').classList.toggle('off', !Snd.on);
+  if (Snd.on) { Snd.init(); Snd.tick(true); } else Music.stop();
+});
+// Some browsers only unlock audio on a completed tap/click
+['touchend', 'click'].forEach(ev => window.addEventListener(ev, () => Snd.init(), { passive: true }));
 $('#btnMenu').addEventListener('pointerdown', e => { e.stopPropagation(); showTitle(); });
 
 let chipCache = '';
@@ -1999,7 +2360,7 @@ function update(realDt) {
     if (state === 'play' || state === 'clear' || state === 'quote') {
       updateObstacles(dt);
       if (state === 'play' || state === 'clear' || state === 'quote') {
-        if (!p.dead) updatePlayer(dt);
+        if (!p.dead && !p.cine) updatePlayer(dt);
         if (state === 'play') { checkPassage(); if (p.x >= stage.end) clearStage(); }
       }
     }
@@ -2013,8 +2374,9 @@ function update(realDt) {
       clearT += realDt;
       timeScale = damp(timeScale, 0.3, 2.5, realDt);           // the world softens and slows
       wash = clamp(clearT / 2.2, 0, 1) * 0.2;
-      if (clearT > 0.9 && p.form === 'water' && p.morph >= 1) { if (!p.calm) { p.calm = true; p.calmT = 0; } p.calmT += realDt; }
-      if (clearT > 1.7 && !quoteShown) showQuote();
+      if (!p.cine && clearT > 0.7 && p.form === 'water' && p.morph >= 1) { p.cine = true; p.cineStart = clearT; p.cineSeg = -2; p.vx = 0; p.x = Math.min(p.x, stage.end + 22); }
+      if (p.cine) cineUpdate(realDt);
+      if (!quoteShown && (p.cine ? clearT - p.cineStart > CINE_WALK : clearT > 4)) showQuote();
     }
     // camera: lead a little ahead of the current
     const target = clamp(p.x - VW * 0.27, 0, Math.max(0, stage.end + 90 - VW));
@@ -2033,7 +2395,11 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-document.addEventListener('visibilitychange', () => { last = performance.now(); });
+document.addEventListener('visibilitychange', () => {
+  last = performance.now();
+  if (!Snd.ac) return;
+  if (document.hidden) Snd.ac.suspend().catch(() => {}); else if (Snd.on) Snd.ac.resume().catch(() => {});
+});
 
 showTitle();
 requestAnimationFrame(frame);
