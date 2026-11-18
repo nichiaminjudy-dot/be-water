@@ -38,6 +38,17 @@ Six short stages (about 20–40 seconds each), all open from the start: pick any
 
 Desktop keys: ↑ mist · ↓ water · ← → ice · on the title, ← → choose a stage and Enter begins.
 
+## Lanterns, stars and checkpoints
+
+- Small red **lanterns** line every stage. Most sit at walking height; some hang at Mist height or sit low under beams, so collecting them all means reading every moment. The counter is top left.
+- Each stage awards up to **three stars**: reach the pool · collect every lantern · finish without a fall. Stars stay earned and show on the stage cards.
+- A **stone lantern checkpoint** sits near the middle of each stage. It lights as you pass; after that, a fall restarts you there.
+- **☰** pauses a run (resume · restart stage · all stages). Leaving the browser tab pauses too.
+
+## The characters on signs and banners
+
+They are real Chinese characters: 功夫 kung fu · 山水 landscape (mountains and water) · 天下 all under heaven · 正气 upright spirit · 无心 no-mind · 大力 great strength · 水 water · 心 heart, mind · 力 strength.
+
 ## Stage clear
 
 Reach the still pool and Bruce runs through a short routine: footwork, chain punches, a high side kick, the thumb across the nose, a salute. As the quote appears he walks off, then steps back in close with a scene for each stage: nunchaku in the Kowloon rain, crane stance on a plum blossom post, drills on the wooden dummy, two-finger push-ups in the Shaolin courtyard, feet up in an armchair with tea on the temple peaks, and a beckoning "come on" in the ink wash.
